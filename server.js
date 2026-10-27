@@ -366,7 +366,7 @@ async function startServer() {
       setInterval(async () => {
         try {
           const response = await fetch(
-            "https://telegram-bot-project-iqzg.onrender.com/",
+            "https://badshah-broking-official-btt2.onrender.com/health",
             { signal: AbortSignal.timeout(10000) }
           );
 
