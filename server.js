@@ -72,11 +72,13 @@ app.post("/api/create-invite-by-bot", inviteLimiter, async (req, res) => {
 
     const inviteId = randomUUID();
 
-    // Only accept strings of reasonable length.
     const cleanIdentifier = (value, maxLength = 500) => {
       if (typeof value !== "string") return null;
+
       const trimmed = value.trim();
+
       if (!trimmed || trimmed.length > maxLength) return null;
+
       return trimmed;
     };
 
@@ -88,7 +90,9 @@ app.post("/api/create-invite-by-bot", inviteLimiter, async (req, res) => {
       `https://api.telegram.org/bot${token}/createChatInviteLink`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           chat_id: channelId,
           name: `lp-${inviteId.slice(0, 20)}`,
@@ -142,8 +146,6 @@ app.post("/api/create-invite-by-bot", inviteLimiter, async (req, res) => {
 
 // --------------------
 // Existing shared invite endpoint
-// Note: this endpoint does not associate a visitor
-// with a unique invite record.
 // --------------------
 
 app.post("/api/create-invite", (req, res) => {
@@ -181,7 +183,6 @@ async function sendMetaJoinEvent(request, channelId, userId, attribution = {}) {
     external_id: [hashedUserId],
   };
 
-  // Include Meta browser identifiers only when available.
   if (attribution.fbp) {
     userData.fbp = attribution.fbp;
   }
@@ -210,7 +211,9 @@ async function sendMetaJoinEvent(request, channelId, userId, attribution = {}) {
     `https://graph.facebook.com/v23.0/${pixelId}/events?access_token=${encodeURIComponent(accessToken)}`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(15000),
     }
@@ -257,7 +260,7 @@ app.post("/telegram-webhook", async (req, res) => {
   res.sendStatus(200);
 
   try {
-    const request = req.body.chat_join_request;
+    const request = req.body?.chat_join_request;
 
     if (!request) return;
 
@@ -269,7 +272,6 @@ app.post("/telegram-webhook", async (req, res) => {
       return;
     }
 
-    // Find the exact invite used for this join request.
     const telegramInviteUrl = request.invite_link?.invite_link;
 
     let inviteRecord = null;
@@ -288,7 +290,6 @@ app.post("/telegram-webhook", async (req, res) => {
       }
     }
 
-    // Preserve existing duplicate protection.
     try {
       await JoinRequest.create({
         channelId,
@@ -346,6 +347,36 @@ app.get("/health", (req, res) => {
 });
 
 // --------------------
+// Keep-alive
+// --------------------
+
+async function pingKeepAliveUrl() {
+  const keepAliveUrl = process.env.KEEP_ALIVE_URL?.trim();
+
+  if (!keepAliveUrl) {
+    console.log("Keep-alive disabled: KEEP_ALIVE_URL is missing");
+    return;
+  }
+
+  try {
+    const response = await fetch(keepAliveUrl, {
+      signal: AbortSignal.timeout(10000),
+    });
+
+    await response.text();
+
+    if (!response.ok) {
+      console.error("Keep-alive request failed:", response.status);
+      return;
+    }
+
+    console.log("Keep-alive ping successful:", response.status);
+  } catch (error) {
+    console.error("Keep-alive request failed:", error.message);
+  }
+}
+
+// --------------------
 // Start server
 // --------------------
 
@@ -363,25 +394,11 @@ async function startServer() {
     app.listen(port, () => {
       console.log(`Server running on port ${port}`);
 
-      setInterval(async () => {
-        try {
-          const response = await fetch(
-<<<<<<< HEAD
-            "https://badshah-broking-official-btt2.onrender.com/",
-=======
-            "https://badshah-broking-official-hnmews.onrender.com/",
->>>>>>> 4eff9d1 (Update Project 2 server URL)
-            { signal: AbortSignal.timeout(10000) }
-          );
+      // Ping immediately, then every 10 minutes.
+      void pingKeepAliveUrl();
 
-          if (!response.ok) {
-            console.error("Keep-alive request failed:", response.status);
-          }
-
-          await response.text();
-        } catch (error) {
-          console.error("Keep-alive request failed:", error.message);
-        }
+      setInterval(() => {
+        void pingKeepAliveUrl();
       }, 10 * 60 * 1000);
     });
   } catch (error) {
