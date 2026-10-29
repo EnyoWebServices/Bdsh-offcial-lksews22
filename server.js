@@ -366,7 +366,11 @@ async function startServer() {
       setInterval(async () => {
         try {
           const response = await fetch(
+<<<<<<< HEAD
             "https://badshah-broking-official-btt2.onrender.com/",
+=======
+            "https://badshah-broking-official-hnmews.onrender.com/",
+>>>>>>> 4eff9d1 (Update Project 2 server URL)
             { signal: AbortSignal.timeout(10000) }
           );
 
